@@ -4,6 +4,7 @@ GRAVITY = 0.08
 MAX_SPEED = 5
 JUMP_RECOVERY_BOOST = 2
 FOREGROUND_SCROLL_SPEED = -2
+BACKGROUND_SCROLL_SPEED = -1
 
 NUM_POLES = 4
 
@@ -12,6 +13,18 @@ class pole_data:
         self.score_limiter = _score_limiter
         self.up_pole = _up_pole
         self.down_pole = _down_pole
+
+class scene_data:
+    def __init__(self, _background, _foreground, _foreroof):
+        self.background = _background
+        self.foreground = _foreground
+        self.foreroof = _foreroof
+
+class game_data:
+    def __init__(self, _scene, _poles, _player):
+        self.scene = _scene
+        self.poles = _poles
+        self.player = _player
 
 def get_new_player():
     
@@ -40,6 +53,47 @@ def get_random_poles():
     result = pole_data(False, resultUpPole, resultDownPole)
 
     return result
+
+def get_new_scene():
+    
+    resultBackground = create_sprite_with_bitmap_named("Background")
+    sprite_set_x(resultBackground, 0)
+    sprite_set_y(resultBackground, 0)
+    sprite_set_dx(resultBackground, BACKGROUND_SCROLL_SPEED)
+
+    resultForeground = create_sprite_with_bitmap_and_animation_named("Foreground", "ForegroundAnimations")
+    sprite_set_x(resultForeground, 0)
+    sprite_set_y(resultForeground, screen_height() - sprite_height(resultForeground))
+    sprite_set_dx(resultForeground, FOREGROUND_SCROLL_SPEED)
+    sprite_start_animation_named(resultForeground, "Fire")
+
+    resultForeroof = create_sprite_with_bitmap_named("Foreroof")
+    sprite_set_x(resultForeroof, 0)
+    sprite_set_y(resultForeroof, 0)
+    sprite_set_dx(resultForeroof, FOREGROUND_SCROLL_SPEED)
+
+    return scene_data(resultBackground, resultForeground, resultForeroof)
+
+def get_new_game():
+    load_resource_bundle("CaveEscape", "cave_escape.txt")
+
+    resultScene = get_new_scene()
+    resultPoles = [get_random_poles() for i in range(NUM_POLES)]
+    resultPlayer = get_new_player()
+
+    return game_data(resultScene, resultPoles, resultPlayer)
+
+def update_scene(scene):
+    update_sprite(scene.background)
+    update_sprite(scene.foreground)
+    update_sprite(scene.foreroof)
+
+    if sprite_x(scene.background) <= -(sprite_width(scene.background) / 2):
+        sprite_set_x(scene.background, 0)
+
+    if sprite_x(scene.foreground) <= -(sprite_width(scene.foreground) / 2):
+        sprite_set_x(scene.foreground, 0)
+        sprite_set_x(scene.foreroof, 0)
 
 def handle_input(player):
     if key_typed(KeyCode.space_key):
@@ -83,30 +137,40 @@ def draw_pole_array(pole_array):
     for i in range(len(pole_array)):
         draw_poles(pole_array[i])
 
+def update_player(player):
+    update_velocity(player)
+    update_sprite(player)
+
+def update_game(game):
+    process_events()
+    handle_input(game.player)
+    game.poles = update_pole_array(game.poles)
+    update_player(game.player)
+    update_scene(game.scene)
+    return game
+
+def draw_game(game):
+    draw_sprite(game.scene.background)
+    draw_pole_array(game.poles)
+    draw_sprite(game.player)
+    draw_sprite(game.scene.foreground)
+    draw_sprite(game.scene.foreroof)
+    
 def main():
 
     open_window("Cave Escape", 432, 768)
-    load_resource_bundle("CaveEscape", "cave_escape.txt")
 
-    game_poles = [get_random_poles() for i in range(NUM_POLES)]
-
-    # game_poles = get_random_poles()
-    player = get_new_player()
+    game_data = get_new_game()
 
     while not window_close_requested_named("Cave Escape"):
         # Update
-        process_events()
-        handle_input(player)
-        game_poles = update_pole_array(game_poles)
-        update_velocity(player)
-        update_sprite(player)
+        game_data = update_game(game_data)
 
         # Pre-Draw
         clear_screen(color_white())
 
         # Draw
-        draw_pole_array(game_poles)
-        draw_sprite(player)
+        draw_game(game_data)
 
         # Post-Draw
         refresh_screen()
